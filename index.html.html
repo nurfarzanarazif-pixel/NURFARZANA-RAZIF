@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kayuhan Vokal Bijak</title>
+    <style>
+        :root {
+            --sky-blue: #87CEEB;
+            --grass-green: #7cfc00;
+            --road-grey: #555;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Bahagian Atas: Soalan */
+        #question-area {
+            width: 100%;
+            height: 40vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 5px solid #ddd;
+            text-align: center;
+        }
+
+        #image-display {
+            font-size: 100px; /* Placeholder guna emoji sementara */
+            margin-bottom: 10px;
+        }
+
+        #word-display {
+            font-size: 48px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            color: #333;
+            text-transform: uppercase;
+        }
+
+        /* Bahagian Bawah: Game Canvas */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            background-color: var(--sky-blue);
+            overflow: hidden;
+        }
+
+        #road {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background-color: var(--road-grey);
+        }
+
+        #bike {
+            position: absolute;
+            bottom: 80px;
+            left: 50px;
+            font-size: 50px;
+            transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 80px;
+            right: -100px;
+            font-size: 40px;
+        }
+
+        /* UI Controls */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        #mic-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background: #ff4757;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #mic-btn.listening {
+            background: #2ed573;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        #status-msg {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+<div id="question-area">
+    <div id="image-display">🍎</div>
+    <div id="word-display">EPAL</div>
+</div>
+
+<div id="game-container">
+    <div id="status-msg">Sedia untuk mengayuh? Tekan mikrofon dan sebut perkataan!</div>
+    <div id="bike">🚲</div>
+    <div id="road"></div>
+    
+    <div id="controls">
+        <button id="mic-btn">🎤</button>
+    </div>
+</div>
+
+<script>
+    const questions = [
+        { word: 'Epal', emoji: '🍎', obstacle: '🕳️' },
+        { word: 'Emak', emoji: '👩', obstacle: '🪧' },
+        { word: 'Ayam', emoji: '🐔', obstacle: '💩' },
+        { word: 'Ikan', emoji: '🐟', obstacle: '🪵' },
+        { word: 'Otak', emoji: '🧠', obstacle: '💧' },
+        { word: 'Ulat', emoji: '🐛', obstacle: '🪨' }
+    ];
+
+    let currentIdx = 0;
+    let isGameOver = false;
+
+    const imageDisplay = document.getElementById('image-display');
+    const wordDisplay = document.getElementById('word-display');
+    const bike = document.getElementById('bike');
+    const micBtn = document.getElementById('mic-btn');
+    const statusMsg = document.getElementById('status-msg');
+    const gameContainer = document.getElementById('game-container');
+
+    // Speech Recognition Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ms-MY';
+    recognition.continuous = false;
+
+    micBtn.addEventListener('click', () => {
+        if (isGameOver) {
+            resetGame();
+            return;
+        }
+        recognition.start();
+        micBtn.classList.add('listening');
+        statusMsg.innerText = "Mendengar...";
+    });
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        micBtn.classList.remove('listening');
+        checkAnswer(transcript);
+    };
+
+    recognition.onerror = () => {
+        micBtn.classList.remove('listening');
+        statusMsg.innerText = "Maaf, tak dengar. Cuba lagi!";
+    };
+
+    function checkAnswer(input) {
+        const target = questions[currentIdx].word.toLowerCase();
+        
+        if (input.includes(target)) {
+            statusMsg.innerText = "BETUL! Lompat!";
+            jump();
+            setTimeout(nextQuestion, 1500);
+        } else {
+            statusMsg.innerText = "SALAH! Anda terlanggar!";
+            hitObstacle();
+        }
+    }
+
+    function jump() {
+        bike.style.bottom = '200px';
+        setTimeout(() => {
+            bike.style.bottom = '80px';
+        }, 600);
+    }
+
+    function hitObstacle() {
+        isGameOver = true;
+        bike.style.transform = 'rotate(90deg)';
+        statusMsg.innerText = "GAME OVER! Tekan mikrofon untuk mula semula.";
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx >= questions.length) {
+            statusMsg.innerText = "TAHNIAH! Anda sudah sampai ke garisan penamat!";
+            currentIdx = 0; // Loop semula
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        const q = questions[currentIdx];
+        imageDisplay.innerText = q.emoji;
+        wordDisplay.innerText = q.word;
+        
+        // Spawn obstacle animation
+        const obs = document.createElement('div');
+        obs.className = 'obstacle';
+        obs.innerText = q.obstacle;
+        gameContainer.appendChild(obs);
+
+        let pos = -100;
+        const moveObs = setInterval(() => {
+            pos += 5;
+            obs.style.right = pos + 'px';
+            if (pos > window.innerWidth + 100) {
+                clearInterval(moveObs);
+                obs.remove();
+            }
+        }, 20);
+    }
+
+    function resetGame() {
+        currentIdx = 0;
+        isGameOver = false;
+        bike.style.transform = 'rotate(0deg)';
+        bike.style.bottom = '80px';
+        statusMsg.innerText = "Sedia! Sebutkan perkataan di atas.";
+        updateUI();
+    }
+
+    // Start first question
+    updateUI();
+
+</script>
+</body>
+</html>
